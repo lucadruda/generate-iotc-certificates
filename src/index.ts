@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { prompt, registerPrompt } from "inquirer";
 import FileTreeSelectionPrompt from "inquirer-file-tree-selection-prompt";
 import path from "path";

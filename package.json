@@ -1,5 +1,5 @@
 {
-  "name": "generate-iotc-certificates",
+  "name": "@lucadruda/generate-iotc-certificates",
   "version": "1.0.0",
   "description": "Generate Self-signed certificates to be used with Azure IoT Central",
   "main": "dist/index.js",
@@ -23,7 +23,18 @@
   "dependencies": {
     "chalk": "^4.1.0",
     "inquirer": "^7.3.3",
-    "inquirer-file-tree-selection-prompt": "file:../inquirer-file-tree-selection",
     "node-forge": "^0.10.0"
+  },
+  "peerDependencies": {
+    "inquirer-file-tree-selection-prompt": "file:../inquirer-file-tree-selection"
+  },
+  "bundledDependencies": [
+    "inquirer-file-tree-selection-prompt"
+  ],
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org"
   }
 }
