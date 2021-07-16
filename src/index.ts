@@ -8,6 +8,7 @@ import {
   generateRoot,
   getCertificateFromPem,
   getPrivateKeyFromPem,
+  getLeavesCertificates,
   verify,
 } from "./certificate";
 
@@ -162,52 +163,69 @@ async function main(verificationCode?: string) {
     rootCA = await generateRoot(options);
     console.log(
       green(
-        `Successfully generated certificate and private key at '${path.resolve(
+        `Successfully generated root certificate and private key at '${path.resolve(
           outFolder
         )}`
       )
     );
 
-    //   const leafCount = await prompt([
-    //     {
-    //       type: "number",
-    //       message: "How many leaf certificates would you like to create?",
-    //       default: 0,
-    //     }]);
-    //     if(leafCount>0){
-    //         await prompt([
-    //             {
-    //               type: "",
-    //               message: 'Insert device name, in case of multiple devices, this is used as a prefix to generate a unique name (e.g. device => device1,device2):\t"',
-    //               default: 0,
-    //             }]);
-    //     }
-
-    //   ,
-    //   ]);
-
-    verificationCode = (
-      await prompt([
+    const generateLeavesData = await prompt<{ generateLeaves: boolean }>([{
+      type: 'confirm',
+      message: 'Do you want to generate certificate for leaves?',
+      name: 'generateLeaves',
+      default: false
+    }]);
+    if (generateLeavesData.generateLeaves) {
+      const leafCount = await prompt<{ leafCount: number }>([
         {
-          message:
-            "Upload generated certificate to IoT Central application and insert verification code.",
-          name: "verification",
-          type: "input",
-        },
-      ])
-    ).verification;
-  }
+          type: "number",
+          message: "How many leaf certificates would you like to create?",
+          name: 'leafCount',
+          default: 0,
+        }]);
+      if (leafCount.leafCount > 0) {
+        const devPrefix = await prompt([
+          {
+            type: "input",
+            message: 'Insert device name, in case of multiple devices, this is used as a prefix to generate a unique name (e.g. device => device1,device2):\t"',
+            default: 'dev',
+            name: 'devPrefix'
+          }]);
+        await getLeavesCertificates(options, leafCount.leafCount, devPrefix.devPrefix, rootCA);
+        console.log(green(`Leaf certificates created at '${outFolder}'`));
+      }
+    }
+    const verifyCerts = await prompt<{ verify: boolean }>([{
+      message: 'Do you want to verify certificates for IoT Central?',
+      name: 'verify',
+      type: 'confirm',
+      default: false
+    }]);
 
-  if (verificationCode) {
-    const verified = await verify(
-      {
-        outFolder,
-      },
-      verificationCode,
-      rootCA
-    );
+    if (verifyCerts.verify) {
+      verificationCode = (
+        await prompt([
+          {
+            message:
+              "Upload generated certificate to IoT Central application and insert verification code.",
+            name: "verification",
+            type: "input",
+          },
+        ])
+      ).verification;
+
+      if (verificationCode) {
+        await verify(
+          {
+            outFolder,
+          },
+          verificationCode,
+          rootCA
+        );
+        console.log(green(`Verification certificate created at '${outFolder}'`));
+      }
+    }
   }
-  console.log(green(`Verification certificate created at '${outFolder}'`));
   process.exit(0);
 }
 

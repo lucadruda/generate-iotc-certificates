@@ -107,17 +107,26 @@ async function createCAPrivKey(
 
 export async function createCert(
   options: CertificatesOptions,
-  issuer?: pki.Certificate
+  name?: pki.Certificate
+): Promise<pki.Certificate>
+export async function createCert(
+  options: CertificatesOptions,
+  issuer: pki.Certificate,
+  name?: string,
+): Promise<pki.Certificate>
+export async function createCert(
+  options: CertificatesOptions,
+  issuer?: pki.Certificate,
+  name?: string,
 ): Promise<pki.Certificate> {
   const key = await createCAPrivKey(options);
   const keyTowrite = key.encryptedKey ?? pki.privateKeyToPem(key.privateKey);
   await fs.writeFile(
     path.join(
       options.outFolder,
-      `${
-        issuer
-          ? "verification"
-          : options.attrs?.find((a) => a.name === "commonName")?.value
+      `${name
+        ? name
+        : options.attrs?.find((a) => a.name === "commonName")?.value
       }.key.pem`
     ),
     keyTowrite
@@ -141,11 +150,11 @@ export async function createCert(
     ...(issuer
       ? []
       : [
-          {
-            name: "basicConstraints",
-            cA: true,
-          },
-        ]),
+        {
+          name: "basicConstraints",
+          cA: true,
+        },
+      ]),
   ]);
   if (issuer) {
     outcert.setIssuer(issuer.subject.attributes);
@@ -191,6 +200,32 @@ export async function getPrivateKeyFromPem(pemPath: string) {
   return pki.privateKeyFromPem(pem);
 }
 
+export async function getLeavesCertificates(options: CertificatesOptions, count: number, prefix: string, rootCA: pki.Certificate): Promise<pki.Certificate[]> {
+  const res: pki.Certificate[] = [];
+  if (!options.attrs) {
+    options.attrs = rootCA.subject.attributes;
+  }
+  for (let i = 1; i <= count; i++) {
+    const name = `${prefix}${count > 1 ? i : ""}`;
+    const leafOptions: CertificatesOptions = {
+      ...options,
+      attrs: options.attrs?.map((a) => {
+        if (a.name === "commonName" || a.shortName === "CN") {
+          return { name: "commonName", value: name };
+        }
+        return { ...a };
+      })
+    };
+    const leaf = await createCert(leafOptions, rootCA);
+    const outName = path.join(options.outFolder, `${name}.pem`);
+    await fs.writeFile(
+      outName,
+      `${pki.certificateToPem(leaf)}${pki.certificateToPem(rootCA)}`
+    );
+    res.push(leaf);
+  }
+  return res;
+}
 // export async function createDevices(
 //   count: number,
 //   prefix: string,
@@ -227,7 +262,7 @@ export async function verify(
       return { ...a };
     }),
   };
-  const validated = await createCert(verificationOptions, rootCA);
+  const validated = await createCert(verificationOptions, rootCA,'verification');
   const outName = path.join(options.outFolder, "verified.pem");
   await fs.writeFile(
     outName,
